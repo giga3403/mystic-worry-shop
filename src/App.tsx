@@ -6,7 +6,8 @@ import { ReceiptView } from './components/ReceiptView';
 import { GalleryModal } from './components/GalleryModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import type { Receipt, WorryFormData } from './types';
-import { generateReceiptFromWorry } from './utils/receiptGenerator';
+import { generateLocalReceiptFromWorry } from './utils/receiptGenerator';
+import { generateReceiptWithGemini, hasGeminiKey } from './lib/gemini';
 import { saveReceiptToBackend, getReceiptById } from './lib/supabase';
 import confetti from 'canvas-confetti';
 
@@ -15,6 +16,7 @@ export function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAiMode, setIsAiMode] = useState(hasGeminiKey());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -33,12 +35,24 @@ export function App() {
   const handleFormSubmit = async (formData: WorryFormData) => {
     setIsLoading(true);
 
-    setTimeout(async () => {
-      const newReceipt = generateReceiptFromWorry(formData);
-      
-      await saveReceiptToBackend(newReceipt);
+    try {
+      let receipt: Receipt | null = null;
 
-      setActiveReceipt(newReceipt);
+      // 1. Gemini AI API 키가 있다면 실시간 LLM 맞춤 생성 시도
+      if (hasGeminiKey()) {
+        receipt = await generateReceiptWithGemini(formData);
+      }
+
+      // 2. AI 키가 없거나 호출 실패 시 -> 지능형 프롬프트 키워드/문맥 분석 엔진으로 맞춤 생성
+      if (!receipt) {
+        receipt = generateLocalReceiptFromWorry(formData);
+      }
+
+      // 백엔드(Supabase 또는 로컬) 저장
+      await saveReceiptToBackend(receipt);
+
+      // 인쇄 완료 효과
+      setActiveReceipt(receipt);
       setIsLoading(false);
 
       confetti({
@@ -49,9 +63,15 @@ export function App() {
       });
 
       const url = new URL(window.location.href);
-      url.searchParams.set('receipt', newReceipt.id);
+      url.searchParams.set('receipt', receipt.id);
       window.history.pushState({}, '', url.toString());
-    }, 1800);
+    } catch (e) {
+      console.error(e);
+      // 에러 발생 시에도 안전하게 로컬 정산 영수증 발급
+      const fallback = generateLocalReceiptFromWorry(formData);
+      setActiveReceipt(fallback);
+      setIsLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -84,6 +104,7 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onReset={handleReset}
         hasActiveReceipt={Boolean(activeReceipt)}
+        isAiActive={isAiMode}
       />
 
       <main className="main-content">
@@ -96,7 +117,12 @@ export function App() {
             onOpenGallery={() => setIsGalleryOpen(true)}
           />
         ) : (
-          <WorryForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+          <WorryForm 
+            onSubmit={handleFormSubmit} 
+            isLoading={isLoading} 
+            isAiActive={isAiMode}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
         )}
       </main>
 
@@ -105,7 +131,7 @@ export function App() {
           "흘려보내지 못한 생각은 마음에 쌓여 돌이 되지만, 털어놓은 고민은 바람을 타고 날아갑니다."
         </p>
         <p className="footer-copy">
-          © 2026 신비한 고민 상점 (Mystic Worry Shop) · Powered by Supabase & React
+          © 2026 신비한 고민 상점 (Mystic Worry Shop) · Powered by Gemini AI, Supabase & React
         </p>
       </footer>
 
@@ -118,7 +144,7 @@ export function App() {
       <SupabaseModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onConfigUpdated={() => {}}
+        onConfigUpdated={() => setIsAiMode(hasGeminiKey())}
       />
     </div>
   );

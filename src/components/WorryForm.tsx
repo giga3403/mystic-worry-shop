@@ -1,11 +1,13 @@
 ﻿import React, { useState } from 'react';
 import type { WorryCategory, WorryFormData } from '../types';
 import { CATEGORY_MAP } from '../utils/receiptGenerator';
-import { Sparkles, Feather, Send, Lock, Globe } from 'lucide-react';
+import { Sparkles, Feather, Send, Lock, Globe, Bot } from 'lucide-react';
 
 interface WorryFormProps {
   onSubmit: (data: WorryFormData) => void;
   isLoading: boolean;
+  isAiActive: boolean;
+  onOpenSettings: () => void;
 }
 
 const SPELLS = [
@@ -23,7 +25,12 @@ const EXPIRY_OPTIONS = [
   '평생 안고 갈 일 아님 (즉시 파기) 🍃'
 ];
 
-export const WorryForm: React.FC<WorryFormProps> = ({ onSubmit, isLoading }) => {
+export const WorryForm: React.FC<WorryFormProps> = ({ 
+  onSubmit, 
+  isLoading, 
+  isAiActive,
+  onOpenSettings
+}) => {
   const [customerName, setCustomerName] = useState('');
   const [category, setCategory] = useState<WorryCategory>('mental');
   const [worryContent, setWorryContent] = useState('');
@@ -63,8 +70,20 @@ export const WorryForm: React.FC<WorryFormProps> = ({ onSubmit, isLoading }) => 
         </div>
         <p className="form-subtitle">
           마음속에 무겁게 맺혀있는 생각을 편하게 털어놓으세요.<br />
-          상점 주인이 당신의 고민을 정산하여 <strong>따뜻한 위로의 영수증</strong>으로 바꿔드립니다.
+          입력하신 고민 문장을 실시간 분석하여 <strong>나만의 맞춤 위로 영수증</strong>으로 바꿔드립니다.
         </p>
+
+        {/* 정산 모드 안내 뱃지 */}
+        <div className="engine-status-banner" onClick={onOpenSettings} role="button">
+          <Bot size={15} className={isAiActive ? 'text-accent' : 'text-warning'} />
+          <span>
+            {isAiActive ? (
+              <strong>Gemini AI 초정밀 정산 모드 작동 중</strong>
+            ) : (
+              <>지능형 문맥 분석 모드 (클릭하여 <strong>무료 Gemini AI 키 연동 가능</strong>)</>
+            )}
+          </span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="worry-form">
@@ -110,7 +129,7 @@ export const WorryForm: React.FC<WorryFormProps> = ({ onSubmit, isLoading }) => 
         <div className="form-group">
           <div className="label-with-hint">
             <label className="form-label" htmlFor="contentInput">
-              털어놓고 싶은 이야기
+              털어놓고 싶은 이야기 (프롬프트)
             </label>
             <span className="char-count">{worryContent.length} / 500자</span>
           </div>
@@ -118,7 +137,7 @@ export const WorryForm: React.FC<WorryFormProps> = ({ onSubmit, isLoading }) => 
             id="contentInput"
             rows={5}
             required
-            placeholder="어떤 생각 때문에 마음이 무거우신가요? 사소한 것이라도, 혹은 누구에게도 말하지 못했던 것이라도 괜찮습니다. 이곳에 적는 순간 당신의 손을 떠나 상점이 보관하게 됩니다."
+            placeholder="어떤 상황 때문에 마음이 무거우신가요? (예: '내일 첫 이직 면접인데 목소리가 떨릴까 봐 잠이 안 와요', '친구에게 무심코 한 말이 상처가 됐을까 봐 하루 종일 후회돼요')"
             value={worryContent}
             onChange={(e) => setWorryContent(e.target.value)}
             className="textarea-input"
@@ -203,7 +222,7 @@ export const WorryForm: React.FC<WorryFormProps> = ({ onSubmit, isLoading }) => 
           className="btn-primary btn-submit"
         >
           <Sparkles className="icon-pulse" size={18} />
-          <span>{isLoading ? '고민을 정산하는 중...' : '마법 영수증 발급하기'}</span>
+          <span>{isLoading ? '고민을 정밀 정산하는 중...' : '마법 영수증 발급하기'}</span>
           <Send size={16} />
         </button>
       </form>
