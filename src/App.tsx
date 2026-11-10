@@ -5,6 +5,7 @@ import { ReceiptLoading } from './components/ReceiptLoading';
 import { ReceiptView } from './components/ReceiptView';
 import { GalleryModal } from './components/GalleryModal';
 import { SupabaseModal } from './components/SupabaseModal';
+import { InstallPwaPrompt } from './components/InstallPwaPrompt';
 import type { Receipt, WorryFormData } from './types';
 import { generateLocalReceiptFromWorry } from './utils/receiptGenerator';
 import { generateReceiptWithGemini, hasGeminiKey } from './lib/gemini';
@@ -38,20 +39,16 @@ export function App() {
     try {
       let receipt: Receipt | null = null;
 
-      // 1. Gemini AI API 키가 있다면 실시간 LLM 맞춤 생성 시도
       if (hasGeminiKey()) {
         receipt = await generateReceiptWithGemini(formData);
       }
 
-      // 2. AI 키가 없거나 호출 실패 시 -> 지능형 프롬프트 키워드/문맥 분석 엔진으로 맞춤 생성
       if (!receipt) {
         receipt = generateLocalReceiptFromWorry(formData);
       }
 
-      // 백엔드(Supabase 또는 로컬) 저장
       await saveReceiptToBackend(receipt);
 
-      // 인쇄 완료 효과
       setActiveReceipt(receipt);
       setIsLoading(false);
 
@@ -67,7 +64,6 @@ export function App() {
       window.history.pushState({}, '', url.toString());
     } catch (e) {
       console.error(e);
-      // 에러 발생 시에도 안전하게 로컬 정산 영수증 발급
       const fallback = generateLocalReceiptFromWorry(formData);
       setActiveReceipt(fallback);
       setIsLoading(false);
@@ -98,6 +94,9 @@ export function App() {
         <div className="star star-4"></div>
         <div className="star star-5"></div>
       </div>
+
+      {/* PWA 홈 화면 추가 배너 (모바일 접속 시 노출) */}
+      <InstallPwaPrompt />
 
       <Header
         onOpenGallery={() => setIsGalleryOpen(true)}
@@ -131,7 +130,7 @@ export function App() {
           "흘려보내지 못한 생각은 마음에 쌓여 돌이 되지만, 털어놓은 고민은 바람을 타고 날아갑니다."
         </p>
         <p className="footer-copy">
-          © 2026 신비한 고민 상점 (Mystic Worry Shop) · Powered by Gemini AI, Supabase & React
+          © 2026 신비한 고민 상점 (Mystic Worry Shop) · Powered by Gemini AI, Supabase & React PWA
         </p>
       </footer>
 
